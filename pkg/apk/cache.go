@@ -26,7 +26,8 @@ import (
 
 // cache
 type cache struct {
-	dir string
+	dir     string
+	offline bool
 }
 
 // client return an http.Client that knows how to read from and write to the cache
@@ -37,14 +38,15 @@ func (c cache) client(wrapped *http.Client, etagRequired bool) *http.Client {
 			wrapped:      wrapped,
 			root:         c.dir,
 			etagRequired: etagRequired,
+			offline:      c.offline,
 		},
 	}
 }
 
 type cacheTransport struct {
-	wrapped      *http.Client
-	root         string
-	etagRequired bool
+	wrapped               *http.Client
+	root                  string
+	etagRequired, offline bool
 }
 
 func (t *cacheTransport) RoundTrip(request *http.Request) (*http.Response, error) {
@@ -59,7 +61,7 @@ func (t *cacheTransport) RoundTrip(request *http.Request) (*http.Response, error
 
 	// If an etag isn't required, then check the cache based on a simple
 	// filename-based naming scheme.
-	if !t.etagRequired {
+	if !t.etagRequired || t.offline {
 		// Try to open the file in the cache, and if we hit an error then
 		// try to populate the file in the cache.
 		f, err := os.Open(cacheFile)
@@ -73,6 +75,10 @@ func (t *cacheTransport) RoundTrip(request *http.Request) (*http.Response, error
 			StatusCode: http.StatusOK,
 			Body:       f,
 		}, nil
+	}
+
+	if t.offline {
+		return nil, fmt.Errorf("offline mode enabled, but %s not found in cache", cacheFile)
 	}
 
 	resp, err := t.wrapped.Head(request.URL.String())
