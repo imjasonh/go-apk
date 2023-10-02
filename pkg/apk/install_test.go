@@ -43,6 +43,8 @@ func TestInstallAPKFiles(t *testing.T) {
 
 		// create a tgz stream with our files
 		entries := []testDirEntry{
+			{"in-root", 0644, false, []byte("hello world"), nil}, // file at /in-root.
+
 			// do the dirs first so we are assured they go in before files
 			{"etc", 0o755, true, nil, nil},
 			{"etc/foo", 0o755, true, nil, nil},
